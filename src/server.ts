@@ -9,21 +9,77 @@ type JsonRpcRequest = {
   params?: Record<string, unknown>;
 };
 
-const DEFAULT_PORT = 10000;
+type ParsedBody =
+  | { kind: 'empty' }
+  | { kind: 'ok'; value: unknown }
+  | { kind: 'parse-error' }
+  | { kind: 'too-large' };
 
-function parseJsonBody(request: Request) {
+const DEFAULT_PORT = 10000;
+const MAX_MCP_BODY_BYTES = 64 * 1024;
+
+async function readBodyTextWithLimit(request: Request, maxBytes: number) {
+  const contentLength = request.headers.get('content-length');
+  if (contentLength) {
+    const parsedLength = Number(contentLength);
+    if (!Number.isNaN(parsedLength) && parsedLength > maxBytes) {
+      return { kind: 'too-large' } as const;
+    }
+  }
+
+  const body = request.body;
+  if (!body) {
+    return { kind: 'empty' } as const;
+  }
+
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+
+    totalBytes += value.byteLength;
+    if (totalBytes > maxBytes) {
+      reader.cancel().catch(() => {});
+      return { kind: 'too-large' } as const;
+    }
+
+    chunks.push(value);
+  }
+
+  if (chunks.length === 0) {
+    return { kind: 'empty' } as const;
+  }
+
+  const merged = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  return { kind: 'ok' as const, value: new TextDecoder().decode(merged) };
+}
+
+async function parseJsonBody(request: Request): Promise<ParsedBody> {
   if (request.method === 'GET' || request.method === 'HEAD' || request.method === 'OPTIONS') {
     return { kind: 'empty' as const };
   }
 
-  return request
-    .clone()
-    .text()
-    .then((text) => {
-      if (!text.trim()) return { kind: 'empty' as const };
-      return { kind: 'ok' as const, value: JSON.parse(text) };
-    })
-    .catch(() => ({ kind: 'parse-error' as const }));
+  const body = await readBodyTextWithLimit(request, MAX_MCP_BODY_BYTES);
+  if (body.kind !== 'ok') {
+    return body;
+  }
+
+  try {
+    if (!body.value.trim()) return { kind: 'empty' as const };
+    return { kind: 'ok' as const, value: JSON.parse(body.value) };
+  } catch {
+    return { kind: 'parse-error' as const };
+  }
 }
 
 function jsonRpcResult(id: JsonRpcRequest['id'], result: unknown, status = 200) {
@@ -53,6 +109,13 @@ export function createApp() {
 
   app.all('/mcp', async (c) => {
     const parsedBody = await parseJsonBody(c.req.raw);
+
+    if (parsedBody.kind === 'too-large') {
+      return new Response(JSON.stringify({ error: 'Request body too large' }), {
+        status: 413,
+        headers: { 'content-type': 'application/json; charset=utf-8' },
+      });
+    }
 
     if (parsedBody.kind === 'parse-error') {
       return jsonRpcError(null, -32700, 'Parse error');

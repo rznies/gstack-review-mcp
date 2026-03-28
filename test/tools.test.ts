@@ -122,3 +122,24 @@ test('malformed json returns parse error', async () => {
   expect(body.error.code).toBe(-32700);
   expect(body.error.message).toBe('Parse error');
 });
+
+test('oversized body is rejected before parsing', async () => {
+  const app = createApp();
+  const res = await app.request('/mcp', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'tools/call',
+      params: {
+        name: 'plan-ceo-review',
+        arguments: { planContent: 'x'.repeat(70 * 1024) },
+      },
+    }),
+  });
+
+  expect(res.status).toBe(413);
+  const body = await res.json();
+  expect(body.error).toBe('Request body too large');
+});
