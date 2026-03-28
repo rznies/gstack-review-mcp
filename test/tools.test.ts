@@ -108,3 +108,17 @@ test('plan-ceo-review validates required plan content', async () => {
   const text = await res.text();
   expect(text.toLowerCase()).toContain('error');
 });
+
+test('malformed json returns parse error', async () => {
+  const app = createApp();
+  const res = await app.request('/mcp', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: '{not json',
+  });
+
+  expect(res.status).toBe(200);
+  const body = await res.json();
+  expect(body.error.code).toBe(-32700);
+  expect(body.error.message).toBe('Parse error');
+});

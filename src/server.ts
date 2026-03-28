@@ -13,17 +13,17 @@ const DEFAULT_PORT = 10000;
 
 function parseJsonBody(request: Request) {
   if (request.method === 'GET' || request.method === 'HEAD' || request.method === 'OPTIONS') {
-    return undefined;
+    return { kind: 'empty' as const };
   }
 
   return request
     .clone()
     .text()
     .then((text) => {
-      if (!text.trim()) return undefined;
-      return JSON.parse(text);
+      if (!text.trim()) return { kind: 'empty' as const };
+      return { kind: 'ok' as const, value: JSON.parse(text) };
     })
-    .catch(() => undefined);
+    .catch(() => ({ kind: 'parse-error' as const }));
 }
 
 function jsonRpcResult(id: JsonRpcRequest['id'], result: unknown, status = 200) {
@@ -53,7 +53,12 @@ export function createApp() {
 
   app.all('/mcp', async (c) => {
     const parsedBody = await parseJsonBody(c.req.raw);
-    const request = parsedBody as JsonRpcRequest | undefined;
+
+    if (parsedBody.kind === 'parse-error') {
+      return jsonRpcError(null, -32700, 'Parse error');
+    }
+
+    const request = parsedBody.kind === 'ok' ? (parsedBody.value as JsonRpcRequest) : undefined;
 
     if (!request || request.jsonrpc !== '2.0' || typeof request.method !== 'string') {
       return jsonRpcError(request?.id ?? null, -32600, 'Invalid Request');
