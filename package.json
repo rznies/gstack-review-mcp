@@ -7,7 +7,7 @@
     "embed-skills": "bash scripts/embed-skills.sh",
     "test": "bun test",
     "build": "bash scripts/embed-skills.sh && bun build src/index.ts --outdir dist --target bun",
-    "start": "bun run dist/index.js"
+    "start": "bun ./dist/index.js"
   },
   "dependencies": {
     "hono": "^4.6.0",

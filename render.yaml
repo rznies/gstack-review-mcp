@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: free
     buildCommand: bash scripts/embed-skills.sh && bun install && bun test && bun build src/index.ts --outdir dist --target bun
-    startCommand: bun run dist/index.js
+    startCommand: bun ./dist/index.js
     healthCheckPath: /
     envVars:
       - key: PORT
