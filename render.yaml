@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: gstack-review-mcp
+    runtime: node
+    plan: free
+    buildCommand: bash scripts/embed-skills.sh && bun install && bun test && bun build src/index.ts --outdir dist --target bun
+    startCommand: bun run dist/index.js
+    healthCheckPath: /
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: NODE_ENV
+        value: production

@@ -1,0 +1,19 @@
+{
+  "name": "gstack-review-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "embed-skills": "bash scripts/embed-skills.sh",
+    "test": "bun test",
+    "build": "bash scripts/embed-skills.sh && bun build src/index.ts --outdir dist --target bun",
+    "start": "bun run dist/index.js"
+  },
+  "dependencies": {
+    "hono": "^4.6.0",
+    "zod": "^4.0.1"
+  },
+  "devDependencies": {
+    "bun-types": "^1.3.10"
+  }
+}
