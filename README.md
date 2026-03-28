@@ -2,6 +2,10 @@
 
 MCP server for the 4 gstack review skills.
 
+## License
+
+MIT. See `LICENSE`.
+
 ## What it exposes
 
 - `list-available-reviews`
