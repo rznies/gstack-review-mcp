@@ -6,7 +6,7 @@
   "scripts": {
     "embed-skills": "bash scripts/embed-skills.sh",
     "test": "bun test",
-    "postinstall": "bun run build",
+    "postinstall": "if [ \"$SKIP_POSTINSTALL\" != \"1\" ]; then bun run build; else echo \"Skipping postinstall build because SKIP_POSTINSTALL=1\"; fi",
     "build": "bash scripts/embed-skills.sh && bun build src/index.ts --outdir dist --target bun",
     "start": "bun ./dist/index.js"
   },
